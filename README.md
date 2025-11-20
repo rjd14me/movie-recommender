@@ -1,28 +1,34 @@
-# Movie → Movie Recommender (Deep Learning + Web UI)
+# Movie Recommender (v1.0)
 
-This project is a small-but-complete movie recommender system designed to
-showcase:
+This is the first iteration of a small movie recommender system built with Python and FastAPI.
 
-- Python & project structure
-- FastAPI backend
-- Deep-learning embeddings for recommendations (PyTorch)
-- Modern frontend (HTML/CSS/JS) with live search suggestions
+- Uses data from the MovieLens set  (`movies.csv` and `ratings.csv`)
+- Learns movie embeddings from user ratings.
+- Exposes a simple web UI where you type a movie title and get similar movies, it allows users to get movies with similar dataset(genre)
+- Includes a live search dropdown that updates as you type, allowing users to quickly select specific movies.
 
-It uses the [MovieLens 100k](https://grouplens.org/datasets/movielens/) style
-`movies.csv` and `ratings.csv` files.
+The goal is to build basic experience with:
 
+- Python project structure
+- FastAPI
+- Simple deep learning (PyTorch)
+- Frontend (HTML/CSS/JS)
+
+identified issues with this version
+- extremely inaccurate results sometimes, e.g. Good Will Hunting will come up with The Lord Of the Rings with the highest match rating despite having different genres.
+- search bar does not allow users room for error.
+- lack of features, such as ability to filter reccomendations by year of release, or genres.
+- the ai does not have enough data to make very accurate decisions.
 ---
 
-## Project Structure
+## Project layout
 
 ```text
 movie-recommender/
-  data/
-    movies.csv
-    ratings.csv
+  data/                 # movies.csv, ratings.csv (not tracked in Git)
   src/
-    data_preparation.py
     api.py
+    data_preparation.py
     evaluation.py
     models/
       deep_model.py
@@ -30,5 +36,8 @@ movie-recommender/
     index.html
   static/
     style.css
+  tests/
+    test_deep_model.py
   requirements.txt
   README.md
+  .gitignore

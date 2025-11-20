@@ -1,3 +1,4 @@
+#modules
 pandas
 numpy
 fastapi
@@ -5,3 +6,6 @@ uvicorn[standard]
 jinja2
 torch
 scikit-learn
+
+#other
+#MovieLens Educational Light Dataset

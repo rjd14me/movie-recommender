@@ -5,11 +5,6 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 def fix_title(title: str) -> str:
-    """
-    MovieLens stores some titles like:
-      'Beautiful Mind, A (2001)' or 'Matrix, The (1999)'.
-    This tries to bring the article (A/The/An) to the front.
-    """
     if "(" not in title:
         return title
 
