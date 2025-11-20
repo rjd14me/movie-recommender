@@ -1,41 +1,72 @@
-# src/data_preparation.py
 from pathlib import Path
 import pandas as pd
 
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
-def load_raw_data(data_dir: str = "data"):
+
+def fix_title(title: str) -> str:
     """
-    Load ratings and movies CSVs from the data directory.
-    Expects MovieLens-style 'ratings.csv' and 'movies.csv'.
+    MovieLens stores some titles like:
+      'Beautiful Mind, A (2001)' or 'Matrix, The (1999)'.
+    This tries to bring the article (A/The/An) to the front.
     """
-    data_path = Path(data_dir)
+    if "(" not in title:
+        return title
 
-    ratings_path = data_path / "ratings.csv"
-    movies_path = data_path / "movies.csv"
+    try:
+        name_part, year_part = title.rsplit("(", 1)
+        year = year_part.strip(") ").strip()
+        name_part = name_part.strip()
 
-    if not ratings_path.exists() or not movies_path.exists():
-        raise FileNotFoundError(
-            f"Could not find ratings.csv or movies.csv in {data_path.resolve()}"
-        )
+        pieces = name_part.split(", ")
+        if len(pieces) > 1 and pieces[-1] in {"The", "A", "An"}:
+            article = pieces[-1]
+            rest = ", ".join(pieces[:-1])
+            fixed = f"{article} {rest} ({year})"
+            return fixed
+
+        return f"{name_part} ({year})"
+    except Exception:
+        return title
+
+
+def load_movies() -> pd.DataFrame:
+    movies_path = DATA_DIR / "movies.csv"
+    if not movies_path.exists():
+        raise FileNotFoundError(f"movies.csv not found at {movies_path.resolve()}")
+
+    movies = pd.read_csv(movies_path)
+    movies["title"] = movies["title"].astype(str).str.strip()
+    movies["title"] = movies["title"].apply(fix_title)
+    return movies
+
+
+def load_ratings() -> pd.DataFrame:
+    ratings_path = DATA_DIR / "ratings.csv"
+    if not ratings_path.exists():
+        raise FileNotFoundError(f"ratings.csv not found at {ratings_path.resolve()}")
 
     ratings = pd.read_csv(ratings_path)
-    movies = pd.read_csv(movies_path)
+    return ratings
 
+
+def load_raw_data():
+    ratings = load_ratings()
+    movies = load_movies()
     return ratings, movies
 
 
-def prepare_merged_data(data_dir: str = "data") -> pd.DataFrame:
+def attach_movie_stats(ratings: pd.DataFrame, movies: pd.DataFrame) -> pd.DataFrame:
     """
-    Convenience function: load and merge ratings + movies into one DataFrame.
+    Adds rating_mean and rating_count columns to movies.
     """
-    ratings, movies = load_raw_data(data_dir=data_dir)
-    merged = ratings.merge(movies, on="movieId", how="left")
-    return merged
+    grouped = ratings.groupby("movieId")["rating"].agg(["mean", "count"]).reset_index()
+    grouped = grouped.rename(columns={"mean": "rating_mean", "count": "rating_count"})
+    movies_with_stats = movies.merge(grouped, on="movieId", how="left")
+    return movies_with_stats
 
 
-if __name__ == "__main__":
-    # Simple sanity check when you run:
-    # python -m src.data_preparation
-    merged = prepare_merged_data()
-    print(merged.head())
-    print(f"Total rows: {len(merged)}")
+def load_movies_with_stats():
+    ratings, movies = load_raw_data()
+    movies_with_stats = attach_movie_stats(ratings, movies)
+    return ratings, movies_with_stats
