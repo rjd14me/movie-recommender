@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Movie Recommender</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Movie Recommender</h1>
+      <p>
+        Type a movie title and discover similar films. Suggestions update as you
+        type.
+      </p>
+    </header>
+
+    <main>
+      <section class="search-section">
+        <form id="search-form" class="search-form">
+          <div class="search-header-row">
+            <label for="title-input">Movie title</label>
+            <div class="n-wrapper">
+              <label for="n-input"># OF RECOMMENDATIONS</label>
+              <input
+                id="n-input"
+                name="n"
+                type="number"
+                min="1"
+                max="30"
+                value="10"
+              />
+            </div>
+          </div>
+
+          <div class="search-row">
+            <div class="search-input-wrapper">
+              <input
+                id="title-input"
+                type="text"
+                placeholder="Start typing a title, e.g. Toy Story"
+                autocomplete="off"
+              />
+              <div id="suggestions" class="suggestions hidden"></div>
+            </div>
+            <button type="submit">Find similar movies</button>
+          </div>
+
+          <p class="helper-text">
+            We'll match by title and then show movies with similar embeddings
+            from the model.
+          </p>
+        </form>
+      </section>
+
+      <section id="results" class="results hidden">
+        <div class="matched-movie">
+          <h2>Matched movies</h2>
+          <div id="matched-movie-content"></div>
+        </div>
+
+        <div class="recommendations">
+          <h2>Similar movies</h2>
+          <div id="recommendations-grid" class="grid"></div>
+        </div>
+      </section>
+
+      <section id="error-box" class="error hidden"></section>
+      <section id="loading" class="loading hidden">Finding movies…</section>
+    </main>
+  </div>
+
+  <script>
+    const form = document.getElementById("search-form");
+    const titleInput = document.getElementById("title-input");
+    const nInput = document.getElementById("n-input");
+    const suggestionsBox = document.getElementById("suggestions");
+    const resultSection = document.getElementById("results");
+    const matchedMovieContent = document.getElementById("matched-movie-content");
+    const recommendationsGrid = document.getElementById("recommendations-grid");
+    const errorBox = document.getElementById("error-box");
+    const loadingIndicator = document.getElementById("loading");
+
+    function show(el) {
+      el.classList.remove("hidden");
+    }
+
+    function hide(el) {
+      el.classList.add("hidden");
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (c) => {
+        return {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        }[c];
+      });
+    }
+
+    function titleWithImdbLink(title, imdbUrl) {
+      const safeTitle = escapeHtml(title || "");
+      if (!imdbUrl) {
+        return safeTitle;
+      }
+      const safeUrl = escapeHtml(imdbUrl);
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeTitle}</a>`;
+    }
+
+    function formatGenres(genres) {
+      if (!genres) return "Genres unknown";
+      return genres.split("|").join(" · ");
+    }
+
+    function formatRating(rating) {
+      if (rating === null || rating === undefined || Number.isNaN(rating)) {
+        return "N/A";
+      }
+      return Number(rating).toFixed(2);
+    }
+
+    function clearSuggestions() {
+      suggestionsBox.innerHTML = "";
+      hide(suggestionsBox);
+    }
+
+    function renderSuggestions(list) {
+      if (!list.length) {
+        clearSuggestions();
+        return;
+      }
+
+      suggestionsBox.innerHTML = list
+        .map(
+          (m) => `
+        <button type="button" class="suggestion-item" data-title="${escapeHtml(
+          m.title
+        )}">
+          <div class="suggestion-title">${escapeHtml(m.title)}</div>
+          <div class="suggestion-meta">
+            ${formatGenres(m.genres)}${
+              m.rating_mean
+                ? ` · ⭐ ${formatRating(m.rating_mean)}${
+                    m.rating_count ? ` (${m.rating_count} ratings)` : ""
+                  }`
+                : ""
+            }
+          </div>
+        </button>
+      `
+        )
+        .join("");
+
+      show(suggestionsBox);
+
+      document
+        .querySelectorAll(".suggestion-item")
+        .forEach((btn) =>
+          btn.addEventListener("click", () => {
+            const title = btn.getAttribute("data-title");
+            titleInput.value = title;
+            clearSuggestions();
+            form.requestSubmit();
+          })
+        );
+    }
+
+    let suggestionTimeout = null;
+
+    async function fetchSuggestions(query) {
+      if (!query || query.length < 2) {
+        clearSuggestions();
+        return;
+      }
+
+      try {
+        const resp = await fetch(
+          `/api/search_titles?q=${encodeURIComponent(query)}`
+        );
+        if (!resp.ok) {
+          throw new Error("Search failed");
+        }
+        const data = await resp.json();
+        renderSuggestions(data);
+      } catch (err) {
+        console.error(err);
+        clearSuggestions();
+      }
+    }
+
+    titleInput.addEventListener("input", (e) => {
+      const value = e.target.value.trim();
+      if (suggestionTimeout) {
+        clearTimeout(suggestionTimeout);
+      }
+      suggestionTimeout = setTimeout(() => fetchSuggestions(value), 150);
+    });
+
+    titleInput.addEventListener("blur", () => {
+      setTimeout(clearSuggestions, 200);
+    });
+
+    function renderMatchedMovie(movie) {
+      matchedMovieContent.innerHTML = `
+        <div class="movie-pill">
+          <div class="movie-title">${titleWithImdbLink(
+            movie.title,
+            movie.imdb_url
+          )}</div>
+          <div class="movie-genres">${formatGenres(movie.genres)}</div>
+          <div class="movie-meta">
+            Average rating: <strong>${formatRating(movie.rating_mean)}</strong>
+            ${
+              movie.rating_count
+                ? ` · from ${movie.rating_count} ratings`
+                : ""
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRecommendations(recs) {
+      if (!recs.length) {
+        recommendationsGrid.innerHTML = "<p>No similar movies found.</p>";
+        return;
+      }
+
+      recommendationsGrid.innerHTML = recs
+        .map(
+          (r) => `
+        <article class="movie-card">
+          <h3>${titleWithImdbLink(r.title, r.imdb_url)}</h3>
+          <p class="genres">${formatGenres(r.genres)}</p>
+          <p class="rating">
+            ⭐ ${formatRating(r.rating_mean)}
+            ${
+              r.rating_count
+                ? `<span class="rating-count">(${r.rating_count} ratings)</span>`
+                : ""
+            }
+          </p>
+          <p class="similarity">
+            Similarity score: <strong>${r.similarity.toFixed(3)}</strong>
+          </p>
+        </article>
+      `
+        )
+        .join("");
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const title = titleInput.value.trim();
+      const n = Number(nInput.value) || 10;
+
+      if (!title) {
+        errorBox.textContent = "Please enter a title.";
+        show(errorBox);
+        hide(resultSection);
+        return;
+      }
+
+      hide(errorBox);
+      hide(resultSection);
+      show(loadingIndicator);
+
+      try {
+        const resp = await fetch(
+          `/api/similar_by_title?title=${encodeURIComponent(
+            title
+          )}&n=${encodeURIComponent(n)}`
+        );
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => null);
+          const msg =
+            (errorData && errorData.detail) ||
+            "Something went wrong while fetching recommendations.";
+          throw new Error(msg);
+        }
+
+        const data = await resp.json();
+        renderMatchedMovie(data.input_movie);
+        renderRecommendations(data.recommendations);
+
+        hide(loadingIndicator);
+        show(resultSection);
+      } catch (err) {
+        hide(loadingIndicator);
+        errorBox.textContent =
+          err.message || "Couldn't find a matching movie.";
+        show(errorBox);
+      }
+    });
+  </script>
+</body>
+</html>
