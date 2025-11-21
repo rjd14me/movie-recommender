@@ -8,4 +8,4 @@ torch
 scikit-learn
 
 #other
-#MovieLens Educational Light Dataset
+#MovieLens educational dataset(small) - movies.csv, ratings.csv, links.csv
