@@ -1,10 +1,10 @@
-# Movie Recommender (v1.0)
+# Movie Recommender (v1.1)
 
 This is the first iteration of a small movie recommender system built with Python and FastAPI.
 
 - Uses data from the MovieLens set  (`movies.csv` and `ratings.csv`)
-- Learns movie embeddings from user ratings.
-- Exposes a simple web UI where you type a movie title and get similar movies, it allows users to get movies with similar dataset(genre)
+- Learns movie patterns
+- Displays a simple web UI where you type a movie title and get similar movies, it allows users to get movies with a similar dataset(genre)
 - Includes a live search dropdown that updates as you type, allowing users to quickly select specific movies.
 
 The goal is to build basic experience with:
