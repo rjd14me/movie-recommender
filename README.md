@@ -1,6 +1,6 @@
 # Movie Recommender (v1.1)
 
-This is the first iteration of a small movie recommender system built with Python and FastAPI.
+This is the first Version of a small movie recommender system built with Python and FastAPI.
 
 - Uses data from the MovieLens set  (`movies.csv` and `ratings.csv`)
 - Learns movie patterns
