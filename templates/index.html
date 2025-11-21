@@ -15,8 +15,7 @@
     <header class="app-header">
       <h1>Movie Recommender</h1>
       <p>
-        Type a movie title and discover similar films. Suggestions update as you
-        type.
+        Type a movie title and discover similar films.
       </p>
     </header>
 
@@ -48,24 +47,23 @@
               />
               <div id="suggestions" class="suggestions hidden"></div>
             </div>
-            <button type="submit">Find similar movies</button>
+            <button type="submit">SEARCH</button>
           </div>
 
           <p class="helper-text">
-            We'll match by title and then show movies with similar embeddings
-            from the model.
+            We'll match by title
           </p>
         </form>
       </section>
 
       <section id="results" class="results hidden">
         <div class="matched-movie">
-          <h2>Matched movies</h2>
+          <h2>Chosen Movie</h2>
           <div id="matched-movie-content"></div>
         </div>
 
         <div class="recommendations">
-          <h2>Similar movies</h2>
+          <h2>Similar Titles</h2>
           <div id="recommendations-grid" class="grid"></div>
         </div>
       </section>

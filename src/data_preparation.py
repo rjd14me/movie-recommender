@@ -46,13 +46,6 @@ def load_ratings() -> pd.DataFrame:
 
 
 def load_links() -> pd.DataFrame:
-    """Load MovieLens links.csv and construct an imdb_url column.
-
-    MovieLens imdbId values are usually integers like 114709.
-    IMDb title URLs expect a seven-digit id (with leading zeros),
-    e.g. tt0114709. This helper normalises that and returns a
-    dataframe with movieId and imdb_url.
-    """
     links_path = DATA_DIR / "links.csv"
     if not links_path.exists():
         raise FileNotFoundError(f"links.csv not found at {links_path.resolve()}")
@@ -61,15 +54,11 @@ def load_links() -> pd.DataFrame:
 
     if "imdbId" not in links.columns:
         raise ValueError("links.csv is missing required column 'imdbId'.")
-
-    # Drop rows without an IMDb id
     links = links.dropna(subset=["imdbId"])
 
-    # imdbId is sometimes stored as float; cast to int then str and zero-pad.
     links["imdbId"] = links["imdbId"].astype("int64").astype(str).str.zfill(7)
     links["imdb_url"] = "https://www.imdb.com/title/tt" + links["imdbId"]
 
-    # Only keep what we actually need.
     return links[["movieId", "imdb_url"]]
 
 
@@ -77,7 +66,6 @@ def load_raw_data():
     ratings = load_ratings()
     movies = load_movies()
 
-    # Attach IMDb URLs if links.csv is available.
     try:
         links = load_links()
     except FileNotFoundError:

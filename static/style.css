@@ -53,8 +53,6 @@ main {
   flex: 1;
 }
 
-/* ---- Search section ---- */
-
 .search-section {
   background: linear-gradient(
       135deg,
@@ -83,7 +81,6 @@ main {
   color: var(--text-muted);
 }
 
-/* make the search input dominate the row width */
 .search-row {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) auto;
@@ -170,8 +167,6 @@ main {
   font-size: 0.8rem;
 }
 
-/* ---- Suggestions dropdown ---- */
-
 .suggestions {
   position: absolute;
   left: 0;
@@ -213,8 +208,6 @@ main {
   font-size: 0.78rem;
   color: var(--text-muted);
 }
-
-/* ---- Results ---- */
 
 .results {
   display: grid;
@@ -343,13 +336,9 @@ main {
   color: var(--text-muted);
 }
 
-/* ---- Utilities ---- */
-
 .hidden {
   display: none;
 }
-
-/* ---- Responsive ---- */
 
 @media (max-width: 720px) {
   .app {
