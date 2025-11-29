@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-from typing import Dict, List, Sequence, Set, Tuple
-
 import numpy as np
 import torch
 from torch import nn
@@ -9,22 +5,16 @@ from torch.utils.data import DataLoader, Dataset
 
 
 class MovieLensGenreDataset(Dataset):
-    def __init__(
-        self,
-        user_indices: Sequence[int],
-        movie_indices: Sequence[int],
-        ratings: Sequence[float],
-        genre_matrix: np.ndarray,
-    ) -> None:
+    def __init__(self, user_indices, movie_indices, ratings, genre_matrix):
         self.user_indices = torch.tensor(user_indices, dtype=torch.long)
         self.movie_indices = torch.tensor(movie_indices, dtype=torch.long)
         self.ratings = torch.tensor(ratings, dtype=torch.float32)
         self.genre_matrix = torch.tensor(genre_matrix, dtype=torch.float32)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.ratings)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx):
         movie_idx = self.movie_indices[idx]
         return (
             self.user_indices[idx],
@@ -35,7 +25,7 @@ class MovieLensGenreDataset(Dataset):
 
 class GenreRecommender(nn.Module):
 
-    def __init__(self, num_users: int, num_genres: int, embedding_dim: int = 32) -> None:
+    def __init__(self, num_users, num_genres, embedding_dim=32):
         super().__init__()
         self.user_embedding = nn.Embedding(num_users, embedding_dim)
         self.genre_projection = nn.Sequential(
@@ -48,32 +38,32 @@ class GenreRecommender(nn.Module):
             nn.Linear(64, 1),
         )
 
-    def forward(self, user_ids: torch.Tensor, genre_vectors: torch.Tensor) -> torch.Tensor:
+    def forward(self, user_ids, genre_vectors):
         user_vec = self.user_embedding(user_ids)
         genre_vec = self.genre_projection(genre_vectors)
         combined = torch.cat([user_vec, genre_vec], dim=1)
         rating_pred = self.regressor(combined)
         return rating_pred.squeeze(1)
 
-    def genre_embedding(self, genre_vectors: torch.Tensor) -> torch.Tensor:
+    def genre_embedding(self, genre_vectors):
         return self.genre_projection(genre_vectors)
 
 
 def train_genre_model(
-    train_users: np.ndarray,
-    train_movies: np.ndarray,
-    train_ratings: np.ndarray,
-    val_users: np.ndarray,
-    val_movies: np.ndarray,
-    val_ratings: np.ndarray,
-    genre_matrix: np.ndarray,
-    num_users: int,
-    num_genres: int,
-    epochs: int = 5,
-    batch_size: int = 256,
-    lr: float = 1e-3,
-    device: str | torch.device | None = None,
-) -> Tuple[GenreRecommender, Dict[str, float]]:
+    train_users,
+    train_movies,
+    train_ratings,
+    val_users,
+    val_movies,
+    val_ratings,
+    genre_matrix,
+    num_users,
+    num_genres,
+    epochs=5,
+    batch_size=256,
+    lr=1e-3,
+    device=None,
+):
     resolved_device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
 
     train_dataset = MovieLensGenreDataset(train_users, train_movies, train_ratings, genre_matrix)
@@ -99,7 +89,7 @@ def train_genre_model(
             loss.backward()
             optimizer.step()
     model.eval()
-    val_losses: List[float] = []
+    val_losses = []
     with torch.no_grad():
         for user_ids, genre_vecs, ratings in val_loader:
             user_ids = user_ids.to(resolved_device)
@@ -112,7 +102,7 @@ def train_genre_model(
     return model.to("cpu"), metrics
 
 
-def compute_genre_embeddings(model: GenreRecommender, genre_matrix: np.ndarray) -> np.ndarray:
+def compute_genre_embeddings(model, genre_matrix):
     model.eval()
     with torch.no_grad():
         genre_tensor = torch.tensor(genre_matrix, dtype=torch.float32)
@@ -122,27 +112,27 @@ def compute_genre_embeddings(model: GenreRecommender, genre_matrix: np.ndarray) 
 
 
 def recommend_by_genre(
-    target_movie_id: int,
+    target_movie_id,
     movies_df,
-    movie_id_to_idx: Dict[int, int],
-    genre_embeddings: np.ndarray,
-    movie_id_to_imdb: Dict[int, str] | None = None,
-    title_tokens: List[Set[str]] | None = None,
-    movie_id_to_avg_rating: Dict[int, float] | None = None,
-    franchise_keys: List[str] | None = None,
-    years: List[int | None] | None = None,
-    avg_rating_range: Tuple[float, float] | None = None,
-    min_year: int | None = None,
-    max_year: int | None = None,
-    min_rating: float | None = None,
-    max_rating: float | None = None,
-    genre_weight: float = 0.6,
-    title_weight: float = 0.2,
-    franchise_weight: float = 0.2,
-    year_weight: float = 0.00,
-    rating_weight: float = 0.00,
-    top_k: int = 10,
-) -> List[Dict]:
+    movie_id_to_idx,
+    genre_embeddings,
+    movie_id_to_imdb=None,
+    title_tokens=None,
+    movie_id_to_avg_rating=None,
+    franchise_keys=None,
+    years=None,
+    avg_rating_range=None,
+    min_year=None,
+    max_year=None,
+    min_rating=None,
+    max_rating=None,
+    genre_weight=0.6,
+    title_weight=0.2,
+    franchise_weight=0.2,
+    year_weight=0.00,
+    rating_weight=0.00,
+    top_k=10,
+):
     if target_movie_id not in movie_id_to_idx:
         raise ValueError("Movie id not found in mapping.")
 
@@ -253,7 +243,7 @@ def recommend_by_genre(
     return recommendations
 
 
-def _title_similarity(a: Set[str], b: Set[str]) -> float:
+def _title_similarity(a, b):
     if not a or not b:
         return 0.0
     overlap = len(a & b)
@@ -262,14 +252,14 @@ def _title_similarity(a: Set[str], b: Set[str]) -> float:
     return overlap / max(len(a), len(b))
 
 
-def _year_similarity(a: int | None, b: int | None) -> float:
+def _year_similarity(a, b):
     if a is None or b is None:
         return 0.0
     gap = abs(a - b)
     return max(0.0, 1.0 - gap / 15.0)
 
 
-def _normalize_rating(rating: float, rating_range: Tuple[float, float] | None) -> float:
+def _normalize_rating(rating, rating_range):
     if not rating_range:
         return 0.0
     r_min, r_max = rating_range

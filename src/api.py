@@ -1,7 +1,6 @@
 import difflib
+import os
 import re
-from pathlib import Path
-from typing import Dict, List
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
@@ -13,8 +12,8 @@ from src.data_preparation import load_imdb_links, prepare_datasets
 from src.models.deep_model import compute_genre_embeddings, recommend_by_genre, train_genre_model
 
 app = FastAPI(title="Movie Recommender", version="1.4")
-app.mount("/static", StaticFiles(directory=Path("static")), name="static")
-templates = Jinja2Templates(directory=Path("templates"))
+app.mount("/static", StaticFiles(directory=os.path.join("static")), name="static")
+templates = Jinja2Templates(directory=os.path.join("templates"))
 
 (
     MOVIES_DF,
@@ -59,7 +58,7 @@ async def root(request: Request):
 
 
 @app.get("/api/search")
-async def search_movies(q: str = Query(..., description="Partial movie title to search")) -> List[Dict]:
+async def search_movies(q: str = Query(..., description="Partial movie title to search")):
     lowered = q.strip().lower()
     if not lowered:
         return []
@@ -69,7 +68,7 @@ async def search_movies(q: str = Query(..., description="Partial movie title to 
     if len(query_key) < 2:
         return []
 
-    scored: List[tuple[float, int]] = []
+    scored = []
     min_ratio = 0.65 if len(query_key) <= 5 else 0.55
     for idx, row in MOVIES_DF.iterrows():
         search_key = row.search_key
@@ -95,7 +94,7 @@ async def search_movies(q: str = Query(..., description="Partial movie title to 
 
 
 @app.get("/api/random")
-async def random_movie() -> Dict:
+async def random_movie():
     sample = MOVIES_DF.sample(1).iloc[0]
     return {"movieId": int(sample.movieId), "title": sample.title, "genres": sample.genres}
 

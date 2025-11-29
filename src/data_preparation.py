@@ -1,27 +1,28 @@
+import os
 import re
-from pathlib import Path
-from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
-def load_data(data_dir: str = "data") -> Tuple[pd.DataFrame, pd.DataFrame]:
-    data_path = Path(data_dir)
-    movies = pd.read_csv(data_path / "movies.csv")
+def load_data(data_dir="data"):
+    movies_path = os.path.join(data_dir, "movies.csv")
+    ratings_path = os.path.join(data_dir, "ratings.csv")
+
+    movies = pd.read_csv(movies_path)
     movies["title"] = movies["title"].apply(normalize_title)
     movies["title_tokens"] = movies["title"].apply(tokenize_title)
     movies["year"] = movies["title"].apply(extract_year)
     movies["franchise_key"] = movies["title"].apply(build_franchise_key)
     movies["search_key"] = movies["title"].apply(build_search_key)
-    ratings = pd.read_csv(data_path / "ratings.csv")
+    ratings = pd.read_csv(ratings_path)
     return movies, ratings
 
 
-def load_imdb_links(data_dir: str = "data") -> Dict[int, str]:
-    links_path = Path(data_dir) / "links.csv"
-    if not links_path.exists():
+def load_imdb_links(data_dir="data"):
+    links_path = os.path.join(data_dir, "links.csv")
+    if not os.path.exists(links_path):
         return {}
 
     links_df = pd.read_csv(
@@ -31,11 +32,12 @@ def load_imdb_links(data_dir: str = "data") -> Dict[int, str]:
         keep_default_na=False,
     )
 
-    mapping: Dict[int, str] = {}
+    mapping = {}
     for _, row in links_df.iterrows():
-        imdb_id = str(row.imdbId).strip()
+        imdb_id = str(row["imdbId"]).strip()
         if imdb_id:
-            mapping[int(row.movieId)] = imdb_id.zfill(7)
+            padded = imdb_id.zfill(7)
+            mapping[int(row["movieId"])] = padded
 
     return mapping
 
@@ -45,7 +47,7 @@ TITLE_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 ROMAN_NUMERAL_RE = re.compile(r"\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b", re.IGNORECASE)
 
 
-def normalize_title(title: str) -> str:
+def normalize_title(title):
     if not isinstance(title, str):
         return title
 
@@ -60,8 +62,7 @@ def normalize_title(title: str) -> str:
     return f"{article} {body}{spacer}{year}".strip()
 
 
-def tokenize_title(title: str) -> set[str]:
-
+def tokenize_title(title):
     if not isinstance(title, str):
         return set()
 
@@ -70,25 +71,35 @@ def tokenize_title(title: str) -> set[str]:
     if year_match:
         cleaned = cleaned[: year_match.start()].strip()
 
-    tokens = [token.lower() for token in TITLE_TOKEN_RE.findall(cleaned)]
+    raw_tokens = TITLE_TOKEN_RE.findall(cleaned)
+    lower_tokens = []
+    for token in raw_tokens:
+        lower_tokens.append(token.lower())
+
     stop_words = {"a", "an", "the"}
-    return {t for t in tokens if t and t not in stop_words}
+    unique_tokens = set()
+    for token in lower_tokens:
+        if token and token not in stop_words:
+            unique_tokens.add(token)
+
+    return unique_tokens
 
 
-def extract_year(title: str) -> int | None:
-
+def extract_year(title):
     if not isinstance(title, str):
         return None
     match = re.search(r"\((\d{4})", title)
     if not match:
         return None
-    try:
-        return int(match.group(1))
-    except ValueError:
+
+    year_text = match.group(1)
+    if not year_text.isdigit():
         return None
 
+    return int(year_text)
 
-def build_franchise_key(title: str) -> str:
+
+def build_franchise_key(title):
     if not isinstance(title, str):
         return ""
 
@@ -100,7 +111,7 @@ def build_franchise_key(title: str) -> str:
     return cleaned.lower()
 
 
-def build_search_key(title: str) -> str:
+def build_search_key(title):
     if not isinstance(title, str):
         return ""
 
@@ -110,7 +121,7 @@ def build_search_key(title: str) -> str:
     return cleaned
 
 
-def build_genre_mapping(movies: pd.DataFrame) -> Dict[str, int]:
+def build_genre_mapping(movies):
     genre_set = set()
     for cell in movies["genres"].fillna(""):
         for genre in cell.split("|"):
@@ -118,10 +129,15 @@ def build_genre_mapping(movies: pd.DataFrame) -> Dict[str, int]:
                 genre_set.add(genre)
 
     sorted_genres = sorted(genre_set)
-    return {genre: idx for idx, genre in enumerate(sorted_genres)}
+
+    mapping = {}
+    for idx, genre in enumerate(sorted_genres):
+        mapping[genre] = idx
+
+    return mapping
 
 
-def encode_genres(movies: pd.DataFrame, genre_to_idx: Dict[str, int]) -> np.ndarray:
+def encode_genres(movies, genre_to_idx):
     num_movies = len(movies)
     num_genres = len(genre_to_idx)
     genre_matrix = np.zeros((num_movies, num_genres), dtype=np.float32)
@@ -135,30 +151,28 @@ def encode_genres(movies: pd.DataFrame, genre_to_idx: Dict[str, int]) -> np.ndar
     return genre_matrix
 
 
-def build_id_mappings(movies: pd.DataFrame, filtered_ratings: pd.DataFrame) -> Tuple[Dict[int, int], Dict[int, int]]:
-    movie_id_to_idx = {int(mid): idx for idx, mid in enumerate(movies["movieId"].tolist())}
+def build_id_mappings(movies, filtered_ratings):
+    movie_id_to_idx = {}
+    for idx, movie_id in enumerate(movies["movieId"].tolist()):
+        movie_id_to_idx[int(movie_id)] = idx
+
     user_ids = sorted(filtered_ratings["userId"].unique())
-    user_id_to_idx = {int(uid): idx for idx, uid in enumerate(user_ids)}
+    user_id_to_idx = {}
+    for idx, user_id in enumerate(user_ids):
+        user_id_to_idx[int(user_id)] = idx
+
     return movie_id_to_idx, user_id_to_idx
 
 
-def filter_ratings(ratings: pd.DataFrame, min_ratings: int = 10) -> pd.DataFrame:
+def filter_ratings(ratings, min_ratings=10):
     counts = ratings["userId"].value_counts()
     keep_users = counts[counts >= min_ratings].index
     return ratings[ratings["userId"].isin(keep_users)].reset_index(drop=True)
 
 
 def prepare_datasets(
-    data_dir: str = "data", test_size: float = 0.1, min_ratings: int = 10
-) -> Tuple[
-    pd.DataFrame,
-    pd.DataFrame,
-    Dict[str, int],
-    np.ndarray,
-    Dict[int, int],
-    Dict[int, int],
-    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
-]:
+    data_dir="data", test_size=0.1, min_ratings=10
+):
     movies_df, ratings_df = load_data(data_dir)
     ratings_df = filter_ratings(ratings_df, min_ratings=min_ratings)
     genre_to_idx = build_genre_mapping(movies_df)
